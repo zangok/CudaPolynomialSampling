@@ -5,11 +5,11 @@
 constexpr auto MAX_DEGREE = 8;
 // Polynomial struct
 struct Polynomial {
-    float coeffs[MAX_DEGREE];
+    double coeffs[MAX_DEGREE];
     int degree;
 
     __host__ __device__
-        float evaluate(float x) const;
+        double evaluate(double x) const;
 };
 
 // SamplingRange struct
@@ -17,12 +17,12 @@ struct Polynomial {
 // step: size of each step
 // count: the amount of steps total for the range
 struct SamplingRange {
-    float start;
-    float step;
+    double start;
+    double step;
     int count;
 
     __host__ __device__
-        float get_x(int i) const;
+        double get_x(int i) const;
 };
 
 
@@ -30,8 +30,8 @@ extern __constant__ Polynomial d_poly_const;
 extern __constant__ SamplingRange d_range_const;
 
 // Function to sample a polynomial for index i, outputs in output
-__host__ __device__ inline void sample_polynomial_index(float* output, int i);
+__host__ __device__ inline void sample_polynomial_index(double* output, int i);
 
-__global__ void addKernel(float* output);
+__global__ void addKernel(double* output);
 
-void run_polynomial_sampling(const Polynomial& h_poly_in, const SamplingRange& h_range_in, float* h_output);
+void run_polynomial_sampling(const Polynomial& h_poly_in, const SamplingRange& h_range_in, double* h_output);

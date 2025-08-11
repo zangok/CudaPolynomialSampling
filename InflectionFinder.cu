@@ -5,21 +5,20 @@
 #include "utils.cuh"
 #include "InflectionFinder.cuh"
 #include <algorithm>
-#include <cfloat> 
 
 // Approximate second derivative divided by step^2
-__device__ inline float second_derivative_approx(const float* y, int idx, float step) {
+__device__ inline double second_derivative_approx(const double* y, int idx, double step) {
     return (y[idx - 1] - 2.0f * y[idx] + y[idx + 1]) / (step * step);
 }
 
 // Pass 1: count potential inflection points (sign change in second derivative)
-__global__ void countPotentialInflections(const float* y, int* count, int N, float step) {
+__global__ void countPotentialInflections(const double* y, int* count, int N, double step) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = gridDim.x * blockDim.x;
 
     for (int idx = tid + 1; idx < N - 2; idx += stride) {
-        float d2y_i = second_derivative_approx(y, idx, step);
-        float d2y_i1 = second_derivative_approx(y, idx + 1, step);
+        double d2y_i = second_derivative_approx(y, idx, step);
+        double d2y_i1 = second_derivative_approx(y, idx + 1, step);
 
         if ((d2y_i <= 0.0f && d2y_i1 >= 0.0f) || (d2y_i >= 0.0f && d2y_i1 <= 0.0f)) {
             atomicAdd(count, 1);
@@ -28,21 +27,21 @@ __global__ void countPotentialInflections(const float* y, int* count, int N, flo
 }
 
 // Pass 2: write inflection candidates with step passed and fixed indexing
-__global__ void writeInflectionCandidates(const float* __restrict__ y,
+__global__ void writeInflectionCandidates(const double* __restrict__ y,
     InflectionCandidate* candidates,
     int* count,
     int N,
-    float step) {
+    double step) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int stride = gridDim.x * blockDim.x;
 
     for (int idx = tid + 1; idx < N - 2; idx += stride) {
-        float d2y_i = second_derivative_approx(y, idx, step);
-        float d2y_i1 = second_derivative_approx(y, idx + 1, step);
+        double d2y_i = second_derivative_approx(y, idx, step);
+        double d2y_i1 = second_derivative_approx(y, idx + 1, step);
 
         if ((d2y_i <= 0.0f && d2y_i1 >= 0.0f) || (d2y_i >= 0.0f && d2y_i1 <= 0.0f)) {
             int pos = atomicAdd(count, 1);
-            float change_magnitude = fmaxf(fabsf(d2y_i), fabsf(d2y_i1));
+            double change_magnitude = fmaxf(fabsf(d2y_i), fabsf(d2y_i1));
 
             candidates[pos].index = idx;
             candidates[pos].change_magnitude = change_magnitude;
@@ -52,11 +51,11 @@ __global__ void writeInflectionCandidates(const float* __restrict__ y,
 }
 
 // Host function to run the entire inflection finder pipeline
-std::vector<int> run_find_inflections(const SamplingRange& h_range_in, float* d_output, int expected_inflections) {
+std::vector<int> run_find_inflections(const SamplingRange& h_range_in, double* d_output, int expected_inflections) {
     const int N = h_range_in.count;
     if (N < 3) return {};
 
-    float step = h_range_in.step; // step size
+    double step = h_range_in.step; // step size
 
     // Allocate and zero device counter
     int* d_count;

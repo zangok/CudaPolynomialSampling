@@ -20,9 +20,9 @@ This minimizes transfers.
 
 int main() {
     // 1. Define and initialize host data for the experiment
-    float h_coeffs[] = {1.0f, 0.5f, -1.0f, 0.15f};
+    double h_coeffs[] = {1.0, 0.5, -1.0, 0.15};
     int degree = 3;
-    int sample_count = 10000;
+    int sample_count = 10000000;
 
     Polynomial h_poly{};
     for (int i = 0; i <= degree; ++i) {
@@ -30,7 +30,7 @@ int main() {
     }
     h_poly.degree = degree;
 
-    SamplingRange h_range = { -10.0f, 20.0f/sample_count, sample_count +1};
+    SamplingRange h_range = { -10.0, 20.0/sample_count, sample_count +1};
 
     // 2. Call the simple experiment runner function
     runExperiment(h_poly, h_range);

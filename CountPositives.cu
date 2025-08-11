@@ -12,7 +12,7 @@
 //Another implementation I did think of was to use y as the storage for counting positives?
 //I found that alot of the times, a atomic add was significantly faster than the reduction method below in
 //Nvidia NSight
-__global__ void runPositivesKernel(int* count, const float* __restrict__ y, int N) {
+__global__ void runPositivesKernel(int* count, const double* __restrict__ y, int N) {
 	int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
 	// Use a grid-stride loop to ensure all elements are checked
@@ -23,7 +23,7 @@ __global__ void runPositivesKernel(int* count, const float* __restrict__ y, int 
 	}
 }
 
-__global__ void runPositivesKernel_branchless(int* d_global_count, const float* __restrict__ y, int N) {
+__global__ void runPositivesKernel_branchless(int* d_global_count, const double* __restrict__ y, int N) {
 	// Shared memory array to store the counts for the current block
 	extern __shared__ int s_block_count[];
 
@@ -56,7 +56,7 @@ __global__ void runPositivesKernel_branchless(int* d_global_count, const float* 
 }
 
 // Calculates positive count using the device array y
-int calc_positives(float* d_y, const SamplingRange& h_range_in) {
+int calc_positives(double* d_y, const SamplingRange& h_range_in) {
 	int N = h_range_in.count;
 
 	if (N <= 0) return 0;

@@ -10,14 +10,14 @@
 #include "InflectionFinderInterpolation.cuh"
 #include <algorithm>
 // CPU version of the sampling
-static void run_polynomial_sampling_cpu(const Polynomial& poly, const SamplingRange& range, float* output) {
+static void run_polynomial_sampling_cpu(const Polynomial& poly, const SamplingRange& range, double* output) {
     for (int i = 0; i < range.count; ++i) {
-        float x = range.get_x(i);
+        double x = range.get_x(i);
         output[i] = poly.evaluate(x);
     }
 }
 // CPU version of positive amount finder
-static int run_calc_positive_cpu(float* y, const SamplingRange& h_range_in) {
+static int run_calc_positive_cpu(double* y, const SamplingRange& h_range_in) {
     int count = 0;
     for (int i = 0; i < h_range_in.count; i++) {
         if (y[i] > 0.0)
@@ -26,7 +26,7 @@ static int run_calc_positive_cpu(float* y, const SamplingRange& h_range_in) {
     return count;
 }
 
-std::vector<int> run_find_inflections_cpu(const SamplingRange& h_range_in, const std::vector<float>& y_data, int expected_inflections) {
+std::vector<int> run_find_inflections_cpu(const SamplingRange& h_range_in, const std::vector<double>& y_data, int expected_inflections) {
     const int N = h_range_in.count;
     if (N < 4 || expected_inflections <= 0) return {};
 
@@ -35,10 +35,10 @@ std::vector<int> run_find_inflections_cpu(const SamplingRange& h_range_in, const
 
     // Iterate through the data to find all potential inflection points.
     for (int idx = 0; idx < N - 3; ++idx) {
-        float slope1 = y_data[idx + 1] - y_data[idx];
-        float slope2 = y_data[idx + 2] - y_data[idx + 1];
-        float change_in_slope = slope2 - slope1;
-        float next_change_in_slope = (y_data[idx + 3] - y_data[idx + 2]) - slope2;
+        double slope1 = y_data[idx + 1] - y_data[idx];
+        double slope2 = y_data[idx + 2] - y_data[idx + 1];
+        double change_in_slope = slope2 - slope1;
+        double next_change_in_slope = (y_data[idx + 3] - y_data[idx + 2]) - slope2;
 
         // Check for a sign change in the change of slope.
         if ((change_in_slope < -FLT_EPSILON && next_change_in_slope > FLT_EPSILON) ||
@@ -83,11 +83,11 @@ void runExperiment(const Polynomial& h_poly, const SamplingRange& h_range) {
     int count = h_range.count;
 
     // Host buffer for GPU output
-    float* h_output_gpu = new float[count];
+    double* h_output_gpu = new double[count];
 
     // Device buffer for polynomial sampling output
-    float* d_output = nullptr;
-    CUDA_CHECK(cudaMalloc(&d_output, count * sizeof(float)));
+    double* d_output = nullptr;
+    CUDA_CHECK(cudaMalloc(&d_output, count * sizeof(double)));
 
     std::chrono::duration<double> sampling_duration;
     std::chrono::duration<double> inflection_duration;
@@ -116,7 +116,7 @@ void runExperiment(const Polynomial& h_poly, const SamplingRange& h_range) {
         });
 
     // Copy sampled polynomial output from device to host for verification / further processing
-    CUDA_CHECK(cudaMemcpy(h_output_gpu, d_output, count * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_output_gpu, d_output, count * sizeof(double), cudaMemcpyDeviceToHost));
 
     // --- Time Positive Count ---
     positives_duration = timeAndPrint("Positive Count", [&]() {
@@ -167,14 +167,14 @@ void runExperiment(const Polynomial& h_poly, const SamplingRange& h_range) {
     // --- CPU Timings ---
 
     // Buffer for CPU polynomial sampling output
-    float* h_output_cpu = new float[count];
+    double* h_output_cpu = new double[count];
 
     sampling_duration_cpu = timeAndPrint("CPU Polynomial Sampling", [&]() {
         run_polynomial_sampling_cpu(h_poly, h_range, h_output_cpu);
         });
 
     inflection_duration_cpu = timeAndPrint("CPU Inflection Finding", [&]() {
-        std::vector<float> y_data(h_output_cpu, h_output_cpu + count);
+        std::vector<double> y_data(h_output_cpu, h_output_cpu + count);
         auto inflections_cpu = run_find_inflections_cpu(h_range, y_data, expected_inflections);
         });
 

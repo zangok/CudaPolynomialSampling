@@ -13,7 +13,7 @@
 __constant__ SamplingRange d_range_const;
 __constant__ Polynomial d_poly_const;
 
-__global__ void addKernel(float* output) {
+__global__ void addKernel(double* output) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     int total_threads = gridDim.x * blockDim.x;
 
@@ -25,9 +25,9 @@ __global__ void addKernel(float* output) {
 
 
 __host__ __device__
-float Polynomial::evaluate(float x) const {
-    float result = 0.0f;
-    float xi = 1.0;
+double Polynomial::evaluate(double x) const {
+    double result = 0.0f;
+    double xi = 1.0;
     for (int i = 0; i <= degree; ++i) {
         result += coeffs[i] * xi;
         xi *= x;
@@ -36,25 +36,25 @@ float Polynomial::evaluate(float x) const {
 }
 
 __host__ __device__
-float SamplingRange::get_x(int i) const {
+double SamplingRange::get_x(int i) const {
     return start + i * step;
 }
 
 inline __host__ __device__
-void sample_polynomial_index(float* output, int i) {
-    float x = d_range_const.get_x(i);
+void sample_polynomial_index(double* output, int i) {
+    double x = d_range_const.get_x(i);
     output[i] = d_poly_const.evaluate(x);
 }
 
 //Note: output not freed here so it can be used without another allocation
-void run_polynomial_sampling(const Polynomial& h_poly_in, const SamplingRange& h_range_in, float* h_output) {
+void run_polynomial_sampling(const Polynomial& h_poly_in, const SamplingRange& h_range_in, double* h_output) {
     std::cout << "Starting Polynomial Sampling on GPU..." << std::endl;
 
     // Device pointer for output
-    float* d_output = nullptr;
+    double* d_output = nullptr;
 
     // Allocate device memory for output
-    CUDA_CHECK(cudaMalloc(&d_output, h_range_in.count * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_output, h_range_in.count * sizeof(double)));
 
     //Copy input structs to constant memory
     CUDA_CHECK(cudaMemcpyToSymbol(d_poly_const, &h_poly_in, sizeof(Polynomial)));
@@ -69,7 +69,7 @@ void run_polynomial_sampling(const Polynomial& h_poly_in, const SamplingRange& h
     CUDA_CHECK(cudaDeviceSynchronize());
 
     // Copy results back to host
-    CUDA_CHECK(cudaMemcpy(h_output, d_output, h_range_in.count * sizeof(float), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_output, d_output, h_range_in.count * sizeof(double), cudaMemcpyDeviceToHost));
 
     std::cout << "Polynomial Sampling complete." << std::endl;
 

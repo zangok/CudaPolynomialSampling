@@ -11,7 +11,7 @@ extern __constant__ Polynomial d_poly_const;
 // Structure to hold the data for each potential inflection point
 struct __align__(16) InflectionCandidate {
     int index;
-    float change_magnitude;
+    double change_magnitude;
     int pad0;
     int pad1;
 };
@@ -20,14 +20,14 @@ static_assert(sizeof(InflectionCandidate) % 16 == 0, "Candidate size should be m
 
 
 // Pass 1: A grid-stride loop kernel to count the total number of potential inflection points.
-__global__ void countPotentialInflections(const float* y, int* count, int N, float step);
+__global__ void countPotentialInflections(const double* y, int* count, int N, double step);
 
 // Pass 2: A grid-stride loop kernel to write the indices and magnitudes of the potential inflection points.
-__global__ void writeInflectionCandidates(const float* __restrict__ y,
+__global__ void writeInflectionCandidates(const double* __restrict__ y,
     InflectionCandidate* candidates,
     int* count,
     int N,
-    float step);
+    double step);
 
 // The host-side function to run the entire process.
-std::vector<int> run_find_inflections(const SamplingRange& h_range_in, float* d_output, int expected_inflections);
+std::vector<int> run_find_inflections(const SamplingRange& h_range_in, double* d_output, int expected_inflections);
