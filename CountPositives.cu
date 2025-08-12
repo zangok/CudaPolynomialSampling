@@ -23,6 +23,7 @@ __global__ void runPositivesKernel(int* count, const float* __restrict__ y, int 
 	}
 }
 
+//3x slower on nvidia nsight?
 __global__ void runPositivesKernel_branchless(int* d_global_count, const float* __restrict__ y, int N) {
 	// Shared memory array to store the counts for the current block
 	extern __shared__ int s_block_count[];
@@ -30,10 +31,8 @@ __global__ void runPositivesKernel_branchless(int* d_global_count, const float* 
 	int tid = blockIdx.x * blockDim.x + threadIdx.x;
 	int local_count = 0;
 
-	// Use a grid-stride loop to ensure all elements are checked
 	for (int i = tid; i < N; i += gridDim.x * blockDim.x) {
-		// This is the key change. The boolean expression (y[i] > 0)
-		// evaluates to 1 or 0, which we can directly add without a conditional branch.
+
 		local_count += (y[i] > 0);
 	}
 
@@ -66,13 +65,25 @@ int calc_positives(float* d_y, const SamplingRange& h_range_in) {
 	CUDA_CHECK(cudaMalloc(&d_count, sizeof(int)));
 	CUDA_CHECK(cudaMemset(d_count, 0, sizeof(int)));
 
-	//Launch config
-	int threadsPerBlock = 256;
-	int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
+	int minGridSize;
+	int blockSize;
 
-	// Pass the array size N d_y to the kernel for the grid-stride loop
-	//runPositivesKernel << <blocksPerGrid, threadsPerBlock >> > (d_count, d_y, N);
-	runPositivesKernel_branchless << <blocksPerGrid, threadsPerBlock, threadsPerBlock * sizeof(int) >> > (d_count, d_y, N);
+	// This call suggests an optimal block size and the minimum grid size to achieve full occupancy
+	CUDA_CHECK(cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, runPositivesKernel, 0, N));
+
+	// threadsPerBlock is now the suggested blockSize
+	int threadsPerBlock = blockSize;
+
+	// Now calculate the number of blocks based on the data size and the optimal block size
+	int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
+
+	// Round the number of blocks up to the minGridSize to avoid a partial wave
+	blocks = (blocks + minGridSize - 1) / minGridSize * minGridSize;
+
+	if (blocks == 0) blocks = 1;
+
+	// Launch the kernel with the optimized configuration
+	runPositivesKernel << <blocks, threadsPerBlock, threadsPerBlock * sizeof(int) >> > (d_count, d_y, N);
 
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaDeviceSynchronize());

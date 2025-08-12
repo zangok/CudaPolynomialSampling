@@ -29,7 +29,7 @@ float Polynomial::evaluate(float x) const {
     float result = 0.0f;
     float xi = 1.0;
     for (int i = 0; i <= degree; ++i) {
-        result += coeffs[i] * xi;
+        result = fmaf(coeffs[i], xi, result);
         xi *= x;
     }
     return result;
@@ -47,9 +47,10 @@ void sample_polynomial_index(float* output, int i) {
 }
 
 //Note: output not freed here so it can be used without another allocation
+//Consts too
 void run_polynomial_sampling(const Polynomial& h_poly_in, const SamplingRange& h_range_in, float* h_output) {
     std::cout << "Starting Polynomial Sampling on GPU..." << std::endl;
-
+    const int N = h_range_in.count;
     // Device pointer for output
     float* d_output = nullptr;
 
@@ -60,9 +61,24 @@ void run_polynomial_sampling(const Polynomial& h_poly_in, const SamplingRange& h
     CUDA_CHECK(cudaMemcpyToSymbol(d_poly_const, &h_poly_in, sizeof(Polynomial)));
     CUDA_CHECK(cudaMemcpyToSymbol(d_range_const, &h_range_in, sizeof(SamplingRange)));
 
-    // Launch kernel
-    int threadsPerBlock = 512;
-    int blocks = (h_range_in.count + threadsPerBlock - 1) / threadsPerBlock;
+    // Use CUDA Occupancy API to find the optimal launch configuration
+    int minGridSize;
+    int blockSize;
+
+    // This call suggests an optimal block size and the minimum grid size to achieve full occupancy
+    CUDA_CHECK(cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, addKernel, 0, N));
+
+    // threadsPerBlock is now the suggested blockSize
+    int threadsPerBlock = blockSize;
+
+    // Now calculate the number of blocks based on the data size and the optimal block size
+    int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
+
+    // Round the number of blocks up to the minGridSize to avoid a partial wave
+    blocks = (blocks + minGridSize - 1) / minGridSize * minGridSize;
+
+    if (blocks == 0) blocks = 1;
+
     addKernel << <blocks, threadsPerBlock >> > (d_output);
 
     CUDA_CHECK(cudaGetLastError());
