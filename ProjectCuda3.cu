@@ -22,7 +22,7 @@ int main() {
     // 1. Define and initialize host data for the experiment
     float h_coeffs[] = {1.0f, 0.5f, -1.0f, 0.15f};
     int degree = 3;
-    int sample_count = 10000;
+    int sample_count = 100000;
 
     Polynomial h_poly{};
     for (int i = 0; i <= degree; ++i) {
